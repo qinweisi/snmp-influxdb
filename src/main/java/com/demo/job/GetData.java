@@ -3,6 +3,7 @@ package com.demo.job;
 import com.demo.entity.SnmpData;
 import com.demo.snmp.Constants;
 import com.demo.snmp.SNMPSessionUtil;
+import com.demo.snmp.ThreadMode;
 import com.demo.util.InfluxDao;
 import org.snmp4j.smi.VariableBinding;
 import org.snmp4j.util.TableEvent;
@@ -10,25 +11,28 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Component;
 
-import java.io.IOException;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.List;
+import java.util.Map;
 
 /**
- * @Description 定时任务
+ * @Description TODO
  * @Author qinweisi
  * @Date 2019/8/28 15:14
  **/
 @Component
 public class GetData {
 
-    private Map<String, String> dataMap = new HashMap<>();
+    public static Map<String, String> dataMap = new HashMap<>();
+    public static Map<String, String> flagMap = new HashMap<>();
 
     @Autowired
-    private InfluxDao dao;
+    public static InfluxDao dao;
 
-    @Scheduled(cron = "0/15 * * * * ?")// 15s
+//    @Scheduled(cron = "0/15 * * * * ?")
     public void getData() {
-        SNMPSessionUtil snmpSessionUtil = new SNMPSessionUtil("127.0.0.1", "161", "public", "2");
+        SNMPSessionUtil snmpSessionUtil = new SNMPSessionUtil("192.168.0.1", "161", "Anonymous", "2");
 
         Map<String, Object> data = snmpSessionUtil.test(Constants.ifOids);
         if (data != null) {
@@ -45,7 +49,7 @@ public class GetData {
                 }
                 if (vb != null) {
                     SnmpData snmpData = new SnmpData();
-                    snmpData.setPort(vb[1].toString());
+                    snmpData.setPort(vb[1].toString().split("=")[1].trim());
                     String key = vb[1].toString().split("=")[0].trim();
                     if (dataMap.containsKey(key + "-in")) {
                         String LastIn = dataMap.get(key + "-in");
@@ -72,9 +76,43 @@ public class GetData {
                 }
             }
             if(entity.size() > 0){
-                dao.insert(entity);
+//                dao.insert(entity);
             }
             System.out.println(time);
+        }
+    }
+
+//    @Scheduled(cron = "0/15 * * * * ?")
+    public void timeAndPackage() {
+        String shell = "/root/ping/pingtool.sh";
+        try {
+            Runtime rt = Runtime.getRuntime();
+            rt.exec(shell);
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+
+    @Scheduled(cron = "0/15 * * * * ?")
+    public void getData1() {
+        List<Map<String,String>> list = new ArrayList<>();
+//        Map<String,String> map = new HashMap<>();
+//        map.put("ip","127.0.0.1");
+//        map.put("port","161");
+//        map.put("community","public");
+//        map.put("version","2");
+//        list.add(map);
+        Map<String,String> map1 = new HashMap<>();
+        map1.put("ip","192.168.0.1");
+        map1.put("port","161");
+        map1.put("community","Anonymous");
+        map1.put("version","2");
+        list.add(map1);
+        //线程数量
+        int threadmax = list.size();
+        for (int i = 0; i < threadmax; i++) {
+            ThreadMode thread = new ThreadMode();
+            thread.getThread(list.get(i)).start();
         }
     }
 }
